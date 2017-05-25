@@ -230,8 +230,8 @@ def request_stats(g_state=['']):
 
                 "fields": {
                     "state": "%s" % report['state'],
-                    "total_rps": "%s" % round(report['total_rps'], 2),
-                    "fail_ratio": "%s" % round(report['fail_ratio'], 4) * 100,
+                    "total_rps": "%s" % report['total_rps'],
+                    "fail_ratio": "%s" % report['fail_ratio'],
                     "user_count": "%s" % report['user_count']
                 }
             }
