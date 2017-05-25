@@ -146,7 +146,7 @@ def distribution_stats_csv():
 
 @app.route('/stats/requests')
 @memoize(timeout=DEFAULT_CACHE_TIME, dynamic_timeout=True)
-def request_stats():
+def request_stats(g_state=''):
     stats = []
     for s in chain(_sort_stats(runners.locust_runner.request_stats), [runners.locust_runner.stats.aggregated_stats("Total")]):
         stats.append({
@@ -238,7 +238,7 @@ def request_stats():
 
     client.write_points(json_body_stated)
 
-    if report['state'] == 'stopped' and report['state'] != G_state:
+    if report['state'] == 'stopped' and report['state'] != g_state:
         A, B, C, D = report['state'], round(report['total_rps'], 2), round(report['fail_ratio'], 4) * 100, report[
             'user_count']
         conn = connect.connect_mysql()
@@ -252,8 +252,8 @@ def request_stats():
             conn.commit()
         finally:
             conn.close()
-    global G_state
-    G_state = report["state"]
+
+    g_state = report["state"]
     return json.dumps(report)
 
 @app.route("/exceptions")
