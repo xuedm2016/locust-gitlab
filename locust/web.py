@@ -3,6 +3,8 @@
 import csv
 import json
 import os.path
+import datetime
+import math
 from time import time
 from itertools import chain
 from collections import defaultdict
@@ -19,6 +21,7 @@ from locust.stats import median_from_dict
 from locust import __version__ as version
 
 import logging
+import connect
 logger = logging.getLogger(__name__)
 
 DEFAULT_CACHE_TIME = 2.0
@@ -35,13 +38,21 @@ def index():
         slave_count = runners.locust_runner.slave_count
     else:
         slave_count = 0
+
+    if runners.locust_runner.host:
+        host = runners.locust_runner.host
+    elif len(runners.locust_runner.locust_classes) > 0:
+        host = runners.locust_runner.locust_classes[0].host
+    else:
+        host = None
     
     return render_template("index.html",
         state=runners.locust_runner.state,
         is_distributed=is_distributed,
         slave_count=slave_count,
         user_count=runners.locust_runner.user_count,
-        version=version
+        version=version,
+        host=host
     )
 
 @app.route('/swarm', methods=["POST"])
@@ -135,7 +146,7 @@ def distribution_stats_csv():
 
 @app.route('/stats/requests')
 @memoize(timeout=DEFAULT_CACHE_TIME, dynamic_timeout=True)
-def request_stats():
+def request_stats(g_state=['']):
     stats = []
     for s in chain(_sort_stats(runners.locust_runner.request_stats), [runners.locust_runner.stats.aggregated_stats("Total")]):
         stats.append({
@@ -178,6 +189,72 @@ def request_stats():
     
     report["state"] = runners.locust_runner.state
     report["user_count"] = runners.locust_runner.user_count
+
+    client = connect.connect_influx()
+    write_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    if report["state"] == "running" or (report["state"] == "stopped" and report['state']!=g_state[0]):
+        for i in report['stats']:
+            json_body = [
+                {
+                    "measurement": "stats_1",
+                    "tags": {
+                        "name": "%s" % i['name'],
+                        "method": "%s" % i['method']
+                    },
+                    "time": "%s" % write_time,
+
+                    "fields": {
+                        "median_response_time": "%s" % i['median_response_time'],
+                        "min_response_time": "%s" % i['min_response_time'],
+                        "current_rps": "%s" % i['current_rps'],
+
+                        "num_failures": "%d" % i['num_failures'],
+                        "max_response_time": "%s" % i['max_response_time'],
+                        "avg_content_length": "%d" % i['avg_content_length'],
+                        "avg_response_time": "%s" % i['avg_response_time'],
+
+                        "num_requests": "%d" % i['num_requests']
+                    }
+                }
+            ]
+            client.write_points(json_body)
+
+        json_body_stated = [
+            {
+                "measurement": "stated_1",
+                "tags": {
+                    "name": "%s" % "stated_1",
+                },
+
+                "time": "%s" % write_time,
+
+                "fields": {
+                    "state": "%s" % report['state'],
+                    "total_rps": "%s" % report['total_rps'],
+                    "fail_ratio": "%s" % report['fail_ratio'],
+                    "user_count": "%s" % report['user_count']
+                }
+            }
+        ]
+
+        client.write_points(json_body_stated)
+
+    if report['state'] == 'stopped' and report['state'] != g_state[0]:
+        A, B, C, D = report['state'], round(report['total_rps'], 2), round(report['fail_ratio'], 4) * 100, report[
+            'user_count']
+        conn = connect.connect_mysql()
+        try:
+            with conn.cursor() as cursor:
+                sql = 'INSERT INTO stated(TASKID,USERID,ZONEID,state,total_rps,fail_ratio,user_count,name,method,num_failures,avg_response_time,num_requests)VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+                for i in report['stats']:
+                    cursor.execute(sql, (
+                        1, 1, 1, A, B, C, D, i['name'], i['method'], i['num_failures'], i['avg_response_time'],
+                        i['num_requests']))
+            conn.commit()
+        finally:
+            conn.close()
+
+    g_state[0] = report["state"]
     return json.dumps(report)
 
 @app.route("/exceptions")
