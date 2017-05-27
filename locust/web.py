@@ -146,7 +146,7 @@ def distribution_stats_csv():
 
 @app.route('/stats/requests')
 @memoize(timeout=DEFAULT_CACHE_TIME, dynamic_timeout=True)
-def request_stats(g_state=['']):
+def request_stats(g_state=[''],last_user_count=[None]):
     stats = []
     for s in chain(_sort_stats(runners.locust_runner.request_stats), [runners.locust_runner.stats.aggregated_stats("Total")]):
         stats.append({
@@ -232,7 +232,7 @@ def request_stats(g_state=['']):
                     "state": "%s" % report['state'],
                     "total_rps": "%s" % report['total_rps'],
                     "fail_ratio": "%s" % report['fail_ratio'],
-                    "user_count": "%s" % report['user_count']
+                    "user_count": "%s" % (report['user_count'] if report["state"]=="running" else last_user_count[0])
                 }
             }
         ]
@@ -240,8 +240,7 @@ def request_stats(g_state=['']):
         client.write_points(json_body_stated)
 
     if report['state'] == 'stopped' and report['state'] != g_state[0]:
-        A, B, C, D = report['state'], round(report['total_rps'], 2), round(report['fail_ratio'], 4) * 100, report[
-            'user_count']
+        A, B, C, D = report['state'], round(report['total_rps'], 2), round(report['fail_ratio'], 4) * 100, last_user_count[0]
         conn = connect.connect_mysql()
         try:
             with conn.cursor() as cursor:
@@ -255,6 +254,7 @@ def request_stats(g_state=['']):
             conn.close()
 
     g_state[0] = report["state"]
+    last_user_count[0] = report["user_count"]
     return json.dumps(report)
 
 @app.route("/exceptions")
