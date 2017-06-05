@@ -62,7 +62,8 @@ def swarm():
     locust_count = int(request.form["locust_count"])
     hatch_rate = float(request.form["hatch_rate"])
     #update code to accept the parameter of "report_id" to write mysql db after testing is done.
-    global report_id = int(request.form["report_id"])
+    global report_id
+    report_id = int(request.form["report_id"])
     runners.locust_runner.start_hatching(locust_count, hatch_rate)
     response = make_response(json.dumps({'success':True, 'message': 'Swarming started'}))
     response.headers["Content-type"] = "application/json"
@@ -251,6 +252,7 @@ def request_stats(g_state=[''],last_user_count=[None]):
                 sql_report = 'UPDATE dtp_report set total_rps=%s,total_fail_ratio=%s,simulate_users=%s WHERE task_id=%s and id=%s'
                 sql_result = 'INSERT INTO dtp_result(url,total_average_rt,total_requests,total_failed,report_id) values(%s,%s,%s,%s,%s)'
                 cursor.execute(sql_report, (B, C, D,task_id,report_id))
+
                 for i in report['stats']:
                     cursor.execute(sql_result, (
                         i['name'], i['avg_response_time'], i['num_requests'], i['num_failures'],report_id))
