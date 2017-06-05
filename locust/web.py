@@ -192,7 +192,10 @@ def request_stats(g_state=[''],last_user_count=[None]):
     
     report["state"] = runners.locust_runner.state
     report["user_count"] = runners.locust_runner.user_count
-
+   # start write test data to influxdb and mysqldb.
+    task_id = os.environ.get('TASK_ID')
+    user_id = os.environ.get('USER_ID')
+    area_id = os.environ.get('AREA_ID')
     client = connect.connect_influx()
     write_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     if report["state"] == "running" or (report["state"] == "stopped" and report['state']!=g_state[0]):
@@ -202,7 +205,9 @@ def request_stats(g_state=[''],last_user_count=[None]):
                     "measurement": "stats_1",
                     "tags": {
                         "name": "%s" % i['name'],
-                        "method": "%s" % i['method']
+                        "method": "%s" % i['method'],
+                        "report_id":"%s" % report_id,
+                        "task_id":"%s" % task_id
                     },
                     "time": "%s" % write_time,
 
@@ -226,7 +231,8 @@ def request_stats(g_state=[''],last_user_count=[None]):
             {
                 "measurement": "stated_1",
                 "tags": {
-                    "name": "%s" % "stated_1",
+                    "report_id":"%s" % report_id,
+                    "task_id":"%s" % task_id
                 },
 
                 "time": "%s" % write_time,
@@ -241,9 +247,6 @@ def request_stats(g_state=[''],last_user_count=[None]):
         ]
 
         client.write_points(json_body_stated)
-    task_id = os.environ.get('TASK_ID')
-    user_id = os.environ.get('USER_ID')
-    area_id = os.environ.get('AREA_ID')
     if report['state'] == 'stopped' and report['state'] != g_state[0]:
         B, C, D = round(report['total_rps'], 2), round(report['fail_ratio'], 4) * 100, last_user_count[0]
         conn = connect.connect_mysql()
