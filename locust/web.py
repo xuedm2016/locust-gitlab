@@ -61,6 +61,9 @@ def swarm():
 
     locust_count = int(request.form["locust_count"])
     hatch_rate = float(request.form["hatch_rate"])
+    #update code to accept the parameter of "report_id" to write mysql db after testing is done.
+    global report_id
+    report_id = int(request.form["report_id"])
     runners.locust_runner.start_hatching(locust_count, hatch_rate)
     response = make_response(json.dumps({'success':True, 'message': 'Swarming started'}))
     response.headers["Content-type"] = "application/json"
@@ -189,7 +192,10 @@ def request_stats(g_state=[''],last_user_count=[None]):
     
     report["state"] = runners.locust_runner.state
     report["user_count"] = runners.locust_runner.user_count
-
+   # start write test data to influxdb and mysqldb.
+    task_id = os.environ.get('TASK_ID')
+    user_id = os.environ.get('USER_ID')
+    area_id = os.environ.get('AREA_ID')
     client = connect.connect_influx()
     write_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     if report["state"] == "running" or (report["state"] == "stopped" and report['state']!=g_state[0]):
@@ -199,7 +205,9 @@ def request_stats(g_state=[''],last_user_count=[None]):
                     "measurement": "stats_1",
                     "tags": {
                         "name": "%s" % i['name'],
-                        "method": "%s" % i['method']
+                        "method": "%s" % i['method'],
+                        "report_id":"%s" % report_id,
+                        "task_id":"%s" % task_id
                     },
                     "time": "%s" % write_time,
 
@@ -223,7 +231,8 @@ def request_stats(g_state=[''],last_user_count=[None]):
             {
                 "measurement": "stated_1",
                 "tags": {
-                    "name": "%s" % "stated_1",
+                    "report_id":"%s" % report_id,
+                    "task_id":"%s" % task_id
                 },
 
                 "time": "%s" % write_time,
@@ -238,17 +247,18 @@ def request_stats(g_state=[''],last_user_count=[None]):
         ]
 
         client.write_points(json_body_stated)
-
     if report['state'] == 'stopped' and report['state'] != g_state[0]:
-        A, B, C, D = report['state'], round(report['total_rps'], 2), round(report['fail_ratio'], 4) * 100, last_user_count[0]
+        B, C, D = round(report['total_rps'], 2), round(report['fail_ratio'], 4) * 100, last_user_count[0]
         conn = connect.connect_mysql()
         try:
             with conn.cursor() as cursor:
-                sql = 'INSERT INTO stated(TASKID,USERID,ZONEID,state,total_rps,fail_ratio,user_count,name,method,num_failures,avg_response_time,num_requests)VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+                sql_report = 'UPDATE dtp_report set total_rps=%s,total_fail_ratio=%s,simulate_users=%s WHERE task_id=%s and id=%s'
+                sql_result = 'INSERT INTO dtp_result(url,total_average_rt,total_requests,total_failed,report_id) values(%s,%s,%s,%s,%s)'
+                cursor.execute(sql_report, (B, C, D,task_id,report_id))
+
                 for i in report['stats']:
-                    cursor.execute(sql, (
-                        1, 1, 1, A, B, C, D, i['name'], i['method'], i['num_failures'], i['avg_response_time'],
-                        i['num_requests']))
+                    cursor.execute(sql_result, (
+                        i['name'], i['avg_response_time'], i['num_requests'], i['num_failures'],report_id))
             conn.commit()
         finally:
             conn.close()
