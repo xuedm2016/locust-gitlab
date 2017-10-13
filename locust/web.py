@@ -241,7 +241,7 @@ def request_stats(g_state=[''],last_user_count=[None],count_list=[None]):
                     "state": "%s" % report['state'],
                     "total_rps": "%s" % report['total_rps'],
                     "fail_ratio": "%s" % report['fail_ratio'],
-                    "user_count": "%s" % (report['user_count'] if report["state"]=="running" else last_user_count[0])
+                    "user_count": "%s" % (report['user_count'] if (report["state"] == "running" or report["state"] == "hatching") else last_user_count[0])
                 }
             }
         ]
