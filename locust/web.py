@@ -149,7 +149,7 @@ def distribution_stats_csv():
 
 @app.route('/stats/requests')
 @memoize(timeout=DEFAULT_CACHE_TIME, dynamic_timeout=True)
-def request_stats(g_state=[''],last_user_count=[None]):
+def request_stats(g_state=[''],last_user_count=[None],count_list=[None]):
     stats = []
     for s in chain(_sort_stats(runners.locust_runner.request_stats), [runners.locust_runner.stats.aggregated_stats("Total")]):
         stats.append({
@@ -248,7 +248,7 @@ def request_stats(g_state=[''],last_user_count=[None]):
 
         client.write_points(json_body_stated)
     if report['state'] == 'stopped' and report['state'] != g_state[0]:
-        B, C, D = round(report['total_rps'], 2), round(report['fail_ratio'], 4) * 100, last_user_count[0]
+        B, C, D = round(report['total_rps'], 2), round(report['fail_ratio'], 4) * 100, max(count_list)
         conn = connect.connect_mysql()
         try:
             with conn.cursor() as cursor:
@@ -265,6 +265,9 @@ def request_stats(g_state=[''],last_user_count=[None]):
 
     g_state[0] = report["state"]
     last_user_count[0] = report["user_count"]
+    count_list.append(int(report["user_count"]))
+    if len(count_list)>10:
+        count_list.pop(0)
     return json.dumps(report)
 
 @app.route("/exceptions")
