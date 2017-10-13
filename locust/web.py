@@ -198,7 +198,7 @@ def request_stats(g_state=[''],last_user_count=[None],count_list=[None]):
     area_id = os.environ.get('AREA_ID')
     client = connect.connect_influx()
     write_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-    if report["state"] == "running" or (report["state"] == "stopped" and report['state']!=g_state[0]):
+    if report["state"] == "running" or report["state"] == "hatching" or (report["state"] == "stopped" and report['state']!=g_state[0]):
         for i in report['stats']:
             json_body = [
                 {
