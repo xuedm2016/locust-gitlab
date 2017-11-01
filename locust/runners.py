@@ -181,6 +181,7 @@ class LocustRunner(object):
         if self.hatching_greenlet and not self.hatching_greenlet.ready():
             self.hatching_greenlet.kill(block=True)
         self.locusts.kill(block=True)
+        print 'kill之后，group()中的协程数量,即活着的用户数：',len(self.locusts)
         self.state = STATE_STOPPED
         events.locust_stop_hatching.fire()
 
