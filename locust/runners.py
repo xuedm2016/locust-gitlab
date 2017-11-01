@@ -177,9 +177,12 @@ class LocustRunner(object):
                 self.spawn_locusts(wait=wait)
 
     def stop(self):
+        print '开始执行stop()函数'
         # if we are currently hatching locusts we need to kill the hatching greenlet first
         if self.hatching_greenlet and not self.hatching_greenlet.ready():
+            print '开始kill掉hatching_greenlet...'
             self.hatching_greenlet.kill(block=True)
+            print 'hatching_greenlet是否成功停止，如果成功返回true:',self.hatching_greenlet.successful()
         self.locusts.kill(block=True)
         print 'kill之后，group()中的协程数量,即活着的用户数：',len(self.locusts)
         self.state = STATE_STOPPED
