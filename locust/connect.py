@@ -9,6 +9,7 @@ def connect_influx():
     influxdb_password = os.environ.get('INFLUXDB_PASSWORD', '')
     influxdb_dbname = os.environ.get('INFLUXDB_DBNAME','statsdb')
     client = InfluxDBClient(influxdb_host, 8086, influxdb_user, influxdb_password, influxdb_dbname)
+    print ("INFLUXDB HOST is: %s \n" % influxdb_host)
     return client
 
 def connect_mysql():
