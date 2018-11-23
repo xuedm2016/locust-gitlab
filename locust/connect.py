@@ -4,7 +4,7 @@ import pymysql
 import os
 
 def connect_influx():
-    influxdb_host = os.environ.get('INFLUXDB_HOST', '202.80.193.115')
+    influxdb_host = os.environ.get('INFLUXDB_HOST', '172.18.143.48')
     influxdb_user = os.environ.get('INFLUXDB_USER', 'root')
     influxdb_password = os.environ.get('INFLUXDB_PASSWORD', 'root')
     influxdb_dbname = os.environ.get('INFLUXDB_DBNAME','statsdb')
